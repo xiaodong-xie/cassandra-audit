@@ -4,6 +4,7 @@ import static com.cassandra.audit.Utils.ALLOW_EMPTY_PASS;
 import static com.cassandra.audit.Utils.LDAP_BASE_DN;
 import static com.cassandra.audit.Utils.LDAP_CASSANDRA_USER_GROUP;
 import static com.cassandra.audit.Utils.NUL;
+import static com.cassandra.audit.Utils.READONLY_USER_CREDENTIALS;
 import static com.cassandra.audit.Utils.SYSTEM_USER_CREDENTIALS;
 import static com.cassandra.audit.Utils.getLdapConnection;
 import static com.unboundid.ldap.sdk.ResultCode.SUCCESS;
@@ -36,6 +37,7 @@ import org.apache.cassandra.exceptions.ConfigurationException;
 
 public class LdapAuthenticator implements IAuthenticator {
 
+    public static final String THE_CONNECTION_IS_NOT_ESTABLISHED = "The connection is not established";
     private Cache<String, String> nonSystemUserCache;
 
     @Override
@@ -65,7 +67,7 @@ public class LdapAuthenticator implements IAuthenticator {
 
     @Override
     public SaslNegotiator newSaslNegotiator(InetAddress clientAddress) {
-        return new FreeIPANegotiator();
+        return new LDAPNegotiator();
     }
 
     @Override
@@ -85,7 +87,7 @@ public class LdapAuthenticator implements IAuthenticator {
         return authenticate(username, password);
     }
 
-    private class FreeIPANegotiator implements SaslNegotiator {
+    private class LDAPNegotiator implements SaslNegotiator {
         private boolean complete = false;
         private String username;
         private String password;
@@ -147,6 +149,17 @@ public class LdapAuthenticator implements IAuthenticator {
                 ));
             }
         }
+        if (READONLY_USER_CREDENTIALS.containsKey(username)) {
+            final String readOnlyUserPassword = READONLY_USER_CREDENTIALS.get(username);
+            if (Objects.equals(readOnlyUserPassword, password)) {
+                return new AuthenticatedUser(username);
+            } else {
+                throw new AuthenticationException(String.format(
+                    "Provided readonly username '%s', the password is incorrect",
+                    username
+                ));
+            }
+        }
         String cachedPassword = nonSystemUserCache.getIfPresent(username);
         if (cachedPassword == null) {
             if (ALLOW_EMPTY_PASS) {
@@ -177,9 +190,10 @@ public class LdapAuthenticator implements IAuthenticator {
                         ));
                     }
                 } catch (LDAPException e) {
+                    reconnectToLDAPServerAndForceUserToRetry(username, e);
                     AuditLogger.LOG.warn("authenticate get LDAPException: ", e);
                     throw new AuthenticationException(String.format(
-                        "Failed to authenticate user %s against FreeIPA",
+                        "Failed to authenticate user %s against LDAP server",
                         username
                     ) + " , " + e.getMessage());
                 }
@@ -198,9 +212,10 @@ public class LdapAuthenticator implements IAuthenticator {
                         ));
                     }
                 } catch (LDAPException e) {
+                    reconnectToLDAPServerAndForceUserToRetry(username, e);
                     AuditLogger.LOG.warn("authenticate get LDAPException: ", e);
                     throw new AuthenticationException(String.format(
-                        "Failed to authenticate user %s against FreeIPA",
+                        "Failed to authenticate user %s against LDAP server",
                         username
                     ) + " , " + e.getMessage());
                 }
@@ -213,5 +228,23 @@ public class LdapAuthenticator implements IAuthenticator {
             ));
         }
         return new AuthenticatedUser(username);
+    }
+
+    private void reconnectToLDAPServerAndForceUserToRetry(String username, LDAPException e) {
+        if (e.getMessage() != null && e.getMessage().contains(THE_CONNECTION_IS_NOT_ESTABLISHED)) {
+            try {
+                Utils.getLdapConnection().reconnect();
+            } catch (LDAPException ex) {
+                AuditLogger.LOG.warn(
+                    "{} tried to authenticate, but connection is down. Try to reconnect, got Exception: ",
+                    username,
+                    e
+                );
+            }
+            throw new AuthenticationException(String.format(
+                "Failed to authenticate user %s against LADP server, connection is down. Please RETRY.",
+                username
+            ));
+        }
     }
 }

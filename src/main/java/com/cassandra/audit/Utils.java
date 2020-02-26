@@ -21,6 +21,8 @@ public final class Utils {
 
     static final List<String> SYSTEM_USERS = new ArrayList<>();
     static final ConcurrentMap<String, String> SYSTEM_USER_CREDENTIALS = new ConcurrentHashMap<>();
+    static final List<String> READONLY_USERS = new ArrayList<>();
+    static final ConcurrentMap<String, String> READONLY_USER_CREDENTIALS = new ConcurrentHashMap<>();
     static final String LDAP_SERVER_ADDR;
     static final String LDAP_SERVER_PORT;
     static final String LDAP_BASE_DN;
@@ -41,6 +43,8 @@ public final class Utils {
         String ldapSysUserPassKey = System.getProperty(LDAP_SYS_USER_PWD_SSM_NAME_KEY, LDAP_SYS_USER_PWD_SSM_NAME_KEY);
         String cassandraSystemUsername = System.getProperty("cassandra-system-username");
         String cassandraSystemUserPass = System.getProperty("cassandra-system-userpass");
+        String cassandraReadOnlyUsername = System.getProperty("cassandra-readonly-username");
+        String cassandraReadOnlyUserPass = System.getProperty("cassandra-readonly-userpass");
         AWSSimpleSystemsManagement ssmClient = null;
         try {
             ssmClient = AWSSimpleSystemsManagementClientBuilder.standard().withRegion(Regions.EU_WEST_1).build();
@@ -48,8 +52,12 @@ public final class Utils {
             LDAP_SYS_USER_PWD = getFromAwsSSM(ssmClient, ldapSysUserPassKey);
             String systemUserName = getFromAwsSSM(ssmClient, cassandraSystemUsername);
             SYSTEM_USERS.add(systemUserName);
+            String readOnlyUserName = getFromAwsSSM(ssmClient, cassandraReadOnlyUsername);
+            READONLY_USERS.add(readOnlyUserName);
             String systemUserPassword = getFromAwsSSM(ssmClient, cassandraSystemUserPass);
             SYSTEM_USER_CREDENTIALS.put(systemUserName, systemUserPassword);
+            String readOnlyUserPassword = getFromAwsSSM(ssmClient, cassandraReadOnlyUserPass);
+            READONLY_USER_CREDENTIALS.put(readOnlyUserName, readOnlyUserPassword);
         } finally {
             if (ssmClient != null) {
                 ssmClient.shutdown();

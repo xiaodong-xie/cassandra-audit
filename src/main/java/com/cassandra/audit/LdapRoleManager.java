@@ -1,6 +1,7 @@
 package com.cassandra.audit;
 
 import static com.cassandra.audit.Utils.LDAP_BASE_DN;
+import static com.cassandra.audit.Utils.READONLY_USERS;
 import static com.cassandra.audit.Utils.SYSTEM_USERS;
 import static com.cassandra.audit.Utils.getLdapConnection;
 
@@ -48,53 +49,59 @@ public class LdapRoleManager implements IRoleManager {
     public void createRole(
         AuthenticatedUser performer, RoleResource role, RoleOptions options
     ) throws RequestValidationException, RequestExecutionException {
-        AuditLogger.LOG.info("createRole called, please go for FreeIPA directly.");
+        AuditLogger.LOG.info("createRole called, please go for LDAP server directly.");
     }
 
     @Override
     public void dropRole(AuthenticatedUser performer, RoleResource role)
         throws RequestValidationException, RequestExecutionException {
-        AuditLogger.LOG.info("dropRole called, please go for FreeIPA directly.");
+        AuditLogger.LOG.info("dropRole called, please go for LDAP server directly.");
     }
 
     @Override
     public void alterRole(AuthenticatedUser performer, RoleResource role, RoleOptions options)
         throws RequestValidationException, RequestExecutionException {
-        AuditLogger.LOG.info("alterRole called, please go for FreeIPA directly.");
+        AuditLogger.LOG.info("alterRole called, please go for LDAP server directly.");
     }
 
     @Override
     public void grantRole(AuthenticatedUser performer, RoleResource role, RoleResource grantee)
         throws RequestValidationException, RequestExecutionException {
-        AuditLogger.LOG.info("grantRole called, please go for FreeIPA directly.");
+        AuditLogger.LOG.info("grantRole called, please go for LDAP server directly.");
     }
 
     @Override
     public void revokeRole(AuthenticatedUser performer, RoleResource role, RoleResource revokee)
         throws RequestValidationException, RequestExecutionException {
-        AuditLogger.LOG.info("revokeRole called, please go for FreeIPA directly.");
+        AuditLogger.LOG.info("revokeRole called, please go for LDAP server directly.");
     }
 
     @Override
     public Set<RoleResource> getRoles(RoleResource grantee, boolean includeInherited)
         throws RequestValidationException, RequestExecutionException {
-        AuditLogger.LOG.info("getRoles called, please go for FreeIPA directly.");
+        AuditLogger.LOG.info("getRoles called, please go for LDAP server directly.");
         return Collections.emptySet();
     }
 
     @Override
     public Set<RoleResource> getAllRoles() throws RequestValidationException, RequestExecutionException {
-        AuditLogger.LOG.info("getAllRoles called, please go for FreeIPA directly.");
+        AuditLogger.LOG.info("getAllRoles called, please go for LDAP server directly.");
         return Collections.emptySet();
     }
 
     @Override
     public boolean isSuper(RoleResource role) {
+        if (READONLY_USERS.contains(role.getRoleName())) {
+            return false;
+        }
         return userExistsWithCache(role);
     }
 
     @Override
     public boolean canLogin(RoleResource role) {
+        if (READONLY_USERS.contains(role.getRoleName())) {
+            return true;
+        }
         return userExistsWithCache(role);
     }
 
@@ -105,6 +112,9 @@ public class LdapRoleManager implements IRoleManager {
 
     @Override
     public boolean isExistingRole(RoleResource role) {
+        if (READONLY_USERS.contains(role.getRoleName())) {
+            return true;
+        }
         return userExistsWithCache(role);
     }
 
