@@ -19,7 +19,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <aws-sdk.version>1.11.313</aws-sdk.version>
-        <httpclient.version>4.5.5</httpclient.version>
+        <httpclient.version>4.5.13</httpclient.version>
         <unboundid-ldapsdk.version>4.0.5</unboundid-ldapsdk.version>
         <buildNumber>${project.version}</buildNumber>
         <java.version>1.8</java.version>
